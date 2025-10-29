@@ -1,0 +1,255 @@
+-- Schema Snapshot (derived from stagi SQL; sensitive columns noted)  
+
+DATABASE: staging_central_hub
+
+TABLES (16):
+
+📋 admin
+- Purpose: Administrative user accounts.it stores the kinfo about the admin there name email passsword etc it is confidential.
+- PK: id (AUTO_INCREMENT). Unique: email.
+- Key columns: email, password, name, created_at.
+
+📋 chat_messages
+- Purpose: Chat conversation logs for the assistant.
+- PK: id (AUTO_INCREMENT). Indexes: chat_id, created_at, (chat_id, pinned).
+- Key columns: chat_id, message, sender, route, created_at, pinned.
+
+📋 stores
+- Purpose: Master store registry and aggregates.it holdes the information about each store that is in db and possess all the information related to the store
+- PK: store_id. Unique: id (AUTO_INCREMENT), shopify_id.
+- Key columns: store_name, shop_url, status, created_at, synced_at,
+  total_products, total_customers, total_orders.
+- Sensitive: access_token (DO NOT SELECT/EXPOSE).
+
+📋 customers
+- Purpose: Customer master linked to stores have all the necessary information about the customers like there name, country, email, orders placed etc.
+- PK: customer_id. Unique: id (AUTO_INCREMENT), shopify_id. FK: store_id → stores.store_id (CASCADE).
+- Key columns: first_name, last_name, email, phone, country,
+  orders_count, total_spent, created_at, synced_at, store_id.
+
+📋 products
+- Purpose: Product catalog by store.Have all the information about the products like title,type,vendor,status,variant_count.
+- PK: product_id. Unique: id (AUTO_INCREMENT). FK: store_id → stores.store_id (CASCADE).
+- Key columns: title, handle, vendor, product_type, status,
+  variant_count, created_at, updated_at, synced_at, store_id.
+
+📋 product_variants
+- Purpose: Variants for products.Have all the information about the product variants.
+- PK: id (AUTO_INCREMENT). Unique: variant_id. FK: product_id → products.product_id (CASCADE).
+- Key columns: sku, price, inventory_quantity, created_at, updated_at, store_id.
+
+📋 sku_mapping
+- Purpose: Map external SKU codes to Shopify IDs.
+- PK: id (AUTO_INCREMENT). Unique composite: (store_id, shopify_variant_id).
+- Key columns: sku_code, shopify_product_id, shopify_variant_id, shopify_sku, store_id.
+
+📋 orders
+- Purpose: Orders by store with customer-facing fields.it stores the information about the orders that are placed like title,email of the customer that placed that order,status if it is paid or not,currency in which the order is paid,price of the order etc. 
+- PK: order_id. Unique: id (AUTO_INCREMENT), shopify_id. FK: store_id → stores.store_id (CASCADE).
+- Key columns: name, email, status, currency,
+  total_price, subtotal_price, total_tax, total_discount, shipping_cost,a
+  created_at, synced_at, store_id.
+
+📋 order_customer
+- Purpose: Link orders to customers.The table has the information about which order is placed by which customer from which store it uses there id to track this information
+- PK: order_id. Unique: id (AUTO_INCREMENT).
+- FK: order_id → orders.order_id (CASCADE), customer_id → customers.customer_id (CASCADE).
+- Key columns: order_id, customer_id, store_id.
+
+📋 order_items
+- Purpose: Line items for orders.
+- PK: id (AUTO_INCREMENT). Unique composite: (order_id, store_id, variant_id).
+- FK: order_id → orders.order_id (CASCADE).
+- Key columns: product_id, variant_id, title, quantity, sku,
+  price, discount, priceBeforeVat, vatAmount, vatPercentage,
+  origin_location_id, origin_location_name, synced_at, line_item_id, store_id.
+
+📋 order_item_properties
+- Purpose: Arbitrary property key/values for order line items.
+- PK: id (AUTO_INCREMENT). Indexes: line_item_id, store_id, order_id.
+- FK: order_id → orders.order_id (CASCADE); store_id → stores.store_id (CASCADE).
+- Key columns: prop_name, prop_value.
+
+📋 order_billing
+- Purpose: Billing addresses and contact info for orders.
+- PK: order_id. Unique: id (AUTO_INCREMENT).
+- FK: order_id → orders.order_id (CASCADE).
+- Key columns: first_name, last_name, address1, phone, city, zip,
+  province, country, address2, company, latitude, longitude, name,
+  country_code, province_code, store_id.
+
+📋 order_shipping
+- Purpose: Shipping addresses and contact info for orders.
+- PK: order_id. Unique: id (AUTO_INCREMENT).
+- FK: order_id → orders.order_id (CASCADE).
+- Key columns: first_name, last_name, address1, phone, city, zip,
+  province, country, address2, company, latitude, longitude, name,
+  country_code, province_code, store_id.
+
+📋 order_fulfillments
+- Purpose: Shipment/fulfillment tracking details.
+- PK: order_id. Unique: id (AUTO_INCREMENT).
+- FK: order_id → orders.order_id (CASCADE).
+- Key columns: fulfillment_id, tracking_company, tracking_number, tracking_url, store_id.
+
+📋 order_returns
+- Purpose: Returns linked to orders.
+- PK: order_id. Unique: id (AUTO_INCREMENT).
+- FK: order_id → orders.order_id (CASCADE).
+- Key columns: return_id, return_reason, refund_amount, created_at, store_id.
+
+📋 order_transaction
+- Purpose: Payment transactions for orders.
+- PK: order_id. Unique: id (AUTO_INCREMENT).
+- FK: order_id → orders.order_id (CASCADE).
+- Key columns: transaction_id, kind, status, amount, currency, gateway, created_at, store_id.
+
+
+RELATIONSHIPS (FK summary):
+- stores 1→N customers (customers.store_id → stores.store_id)
+- stores 1→N products (products.store_id → stores.store_id)
+- products 1→N product_variants (product_variants.product_id → products.product_id)
+- stores 1→N orders (orders.store_id → stores.store_id)
+- orders 1→1 order_billing / order_shipping / order_fulfillments / order_returns / order_transaction (by order_id)
+- orders 1→N order_items (order_items.order_id → orders.order_id)
+- orders N→1 customers via order_customer (order_customer.order_id → orders.order_id; order_customer.customer_id → customers.customer_id)
+- stores 1→N sku_mapping (sku_mapping.store_id → stores.store_id)
+
+FOREIGN KEYS (from database constraints):
+- customers.store_id → stores.store_id (ON DELETE CASCADE)
+- orders.store_id → stores.store_id (ON DELETE CASCADE)
+- order_billing.order_id → orders.order_id (ON DELETE CASCADE)
+- order_customer.order_id → orders.order_id (ON DELETE CASCADE)
+- order_customer.customer_id → customers.customer_id (ON DELETE CASCADE)
+- order_fulfillments.order_id → orders.order_id (ON DELETE CASCADE)
+- order_items.order_id → orders.order_id (ON DELETE CASCADE)
+- order_item_properties.order_id → orders.order_id (ON DELETE CASCADE)
+- order_item_properties.store_id → stores.store_id (ON DELETE CASCADE)
+- order_returns.order_id → orders.order_id (ON DELETE CASCADE)
+- order_shipping.order_id → orders.order_id (ON DELETE CASCADE)
+- order_transaction.order_id → orders.order_id (ON DELETE CASCADE)
+- products.store_id → stores.store_id (ON DELETE CASCADE)
+- product_variants.product_id → products.product_id (ON DELETE CASCADE)
+- sku_mapping.store_id → stores.store_id (ON DELETE CASCADE)
+
+NOTES & INDEXES:
+- Many tables keep a surrogate AUTO_INCREMENT id alongside a business PK (e.g., orders.order_id).
+- Orders and customers are store-scoped via store_id; use it in joins/filters for performance.
+- Common query fields are indexed: chat_messages.chat_id/created_at, products.store_id, orders.store_id, customers.store_id.
+- Avoid selecting stores.access_token (sensitive).
+
+COLUMN HINTS (disambiguation for LLMs):
+- variant_count exists only on products (use p.variant_count). product_variants does not have variant_count.
+- Link orders to customers via order_customer; there is no orders.customer_id column.
+- Buyer-facing name/email fields live on orders; do not try customers.name on orders.
+
+INDEX HINTS (performance/uniqueness):
+- order_items has a UNIQUE composite index on (order_id, store_id, variant_id) ensuring item uniqueness per order/store.
+- product_variants has a UNIQUE index on variant_id.
+- products primary key is product_id; a separate AUTO_INCREMENT id also exists.
+- stores has UNIQUE shopify_id and primary key store_id.
+
+RECOMMENDED QUERY PATTERNS:
+- Recent orders per store: use orders.created_at DESC with LIMIT.
+- Join orders→order_items→products for itemized analysis.
+- Link orders to customers via order_customer (not direct join on nonexistent orders.customer_id).
+- For schema exploration: use information_schema (tables, columns, keys) or DESCRIBE table_name.
+
+
+TABLE PROMPTS (read-me-first descriptions for each table):
+
+- admin:
+  What it is: Internal admin users of the application.
+  What it contains: id, email, password (hashed), name, created_at.
+  Use it for: Access control analytics only if explicitly asked. Default is to avoid.
+  Important: This table is sensitive. Do not query or expose unless the user clearly requests admin analytics.
+
+- chat_messages:
+  What it is: History of conversations with the assistant.
+  What it contains: chat_id to group messages, message text, sender (user/bot), route (area of app), created_at timestamp, pinned flag.
+  Use it for: Auditing conversations, retrieving last messages, or building examples of user intents.
+  Example question: "show last 20 messages in a given chat_id".
+
+- stores:
+  What it is: The master list of Shopify stores managed by this system.
+  What it contains: store_id (business key), shopify_id, store_name, shop_url, operational status, timestamps (created_at, synced_at), and aggregate counters (total_products, total_customers, total_orders).
+  Use it for: Listing stores, filtering entities by store, computing store-level KPIs.
+  Do not use: access_token (sensitive; never select or show).
+  Example questions: "list all stores with totals", "which stores were synced most recently".
+
+- customers:
+  What it is: People who purchased or registered in a store.
+  What it contains: customer_id (business key), optional shopify_id, link to store_id, names, email, phone, country, behavioral metrics (orders_count, total_spent), created/synced timestamps.
+  Use it for: Customer lists, country distributions, top spenders, growth over time.
+  Join tips: customers.store_id → stores.store_id. Link to orders via order_customer (not directly).
+  Example questions: "customer count by country", "top 20 customers by total_spent".
+
+- products:
+  What it is: Master products offered by stores.
+  What it contains: product_id (business key), store_id, title, handle, vendor, product_type, status, variant_count, created/updated/synced timestamps.
+  Use it for: Product catalogs, vendor analysis, product types, inventory coverage (via variants).
+  Join tips: products.store_id → stores.store_id. Variants live in product_variants by product_id.
+  Example questions: "latest 20 products", "products by vendor".
+
+- product_variants:
+  What it is: Specific purchasable variations of a product.
+  What it contains: id (surrogate), variant_id (unique business), product_id, sku, title, price, inventory_quantity, created/updated timestamps, store_id.
+  Use it for: Price and stock analysis, mapping SKUs to products, variant-level insights.
+  Join tips: product_variants.product_id → products.product_id.
+  Example questions: "variants with low inventory", "average variant price per product".
+
+- sku_mapping:
+  What it is: A bridge between custom SKU codes and Shopify product/variant IDs.
+  What it contains: store_id, sku_code, shopify_product_id, shopify_variant_id, shopify_sku.
+  Use it for: Translating local SKUs to Shopify IDs for downstream joins.
+  Example questions: "find Shopify variant for a given sku_code".
+
+- orders:
+  What it is: Purchases placed in a store.
+  What it contains: order_id (business key), shopify_id, store_id, order name (readable), email (customer email), status (e.g., PAID/PENDING), currency, amounts (total/subtotal/tax/discount/shipping), created_at, synced_at.
+  Use it for: Sales analysis, recent orders, order status distributions, revenue metrics.
+  Join tips: orders.store_id → stores.store_id. Link to customers via order_customer; items via order_items.
+  Example questions: "recent orders", "revenue by status", "orders this month".
+
+- order_customer:
+  What it is: The link table that associates an order to its customer.
+  What it contains: order_id, customer_id, store_id context.
+  Use it for: Joining orders with customers to access customer attributes (country, total_spent, etc.).
+  Example: orders → order_customer → customers for customer demographics.
+
+- order_items:
+  What it is: Line items that make up each order.
+  What it contains: order_id, store_id, product_id, variant_id, title, quantity, sku, monetary fields (price, discount, VAT info), origin location info, synced_at, line_item_id.
+  Use it for: Basket analysis, item-level revenue, product performance.
+  Join tips: order_items.order_id → orders.order_id; join to products/product_variants via ids.
+  Example questions: "top products by revenue", "items per order".
+
+- order_item_properties:
+  What it is: Flexible attributes for line items (e.g., customization options).
+  What it contains: order_id, store_id, line_item_id, prop_name, prop_value.
+  Use it for: Advanced item-level analysis when extra attributes were captured at purchase.
+
+- order_billing:
+  What it is: Billing addresses and contact details of the purchaser.
+  What it contains: Names, address, phone, city/zip/province/country codes, and geo hints; keyed by order_id.
+  Use it for: Billing geography, contact completeness.
+
+- order_shipping:
+  What it is: Shipping addresses and contact details for orders.
+  What it contains: Names, address, phone, city/zip/province/country codes, and geo hints; keyed by order_id.
+  Use it for: Shipping geography and logistics.
+
+- order_fulfillments:
+  What it is: Shipment/fulfillment info per order.
+  What it contains: fulfillment_id, tracking company/number/url and store context.
+  Use it for: Delivery tracking analytics, carrier usage.
+
+- order_returns:
+  What it is: Returns initiated for orders.
+  What it contains: return_id, reason text, refund_amount, created_at, store context.
+  Use it for: Return rate analysis, reasons and refund totals.
+
+- order_transaction:
+  What it is: Payment transactions tied to orders.
+  What it contains: transaction_id, kind (authorization, sale, refund), status, amount, currency, gateway, created_at, store context.
+  Use it for: Payment method mix, success/failure rates, refund tracking.

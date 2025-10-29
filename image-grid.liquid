@@ -1,0 +1,785 @@
+{% comment %}
+  IMAGE GALLERY SECTION FOR SHOPIFY
+  
+  TO USE THIS SECTION IN SHOPIFY:
+  1. This file should be uploaded to your theme's "sections" folder
+  2. In Shopify admin, go to Online Store > Themes > Customize
+  3. Click "Add section" and you'll see "Image Gallery" in the list
+  4. Once added, click "Add image" to upload images to your gallery
+  5. You can add up to 50 images total
+  6. Images are responsive and work on all devices
+  
+  FEATURES:
+  - Large responsive grid layout (400px minimum)
+  - Customizable aspect ratios: Square, Portrait, Landscape, or Adapt to Image
+  - Click to view full-size image
+  - Select and Cancel buttons in preview
+  - Keyboard navigation (arrow keys, ESC to close)
+  - Touch/swipe support for mobile
+  - Image counter
+  - Smooth animations
+  
+  IMAGE REQUIREMENTS:
+  - Recommended size: 800x800px or larger
+  - Formats: JPG, PNG, GIF, WebP
+  - Choose aspect ratio in theme settings
+{% endcomment %}
+
+<style>
+  .image-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: 20px;
+    padding: 20px;
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+
+  .gallery-item {
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  /* Aspect Ratio Options */
+  .gallery-item[data-ratio="square"] {
+    aspect-ratio: 1;
+  }
+
+  .gallery-item[data-ratio="portrait"] {
+    aspect-ratio: 3 / 4;
+  }
+
+  .gallery-item[data-ratio="landscape"] {
+    aspect-ratio: 4 / 3;
+  }
+
+  .gallery-item[data-ratio="adapt"] {
+    aspect-ratio: auto;
+    height: auto;
+    max-height: 600px;
+  }
+
+  .gallery-item[data-ratio="adapt"] .gallery-image {
+    width: 100%;
+    height: auto;
+    display: block;
+    object-fit: contain;
+  }
+
+  .gallery-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+  }
+
+  /* Ensure proper image fit for all modes except adapt */
+  .gallery-item:not([data-ratio="adapt"]) .gallery-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .gallery-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  }
+
+  .gallery-item:hover .gallery-image {
+    transform: scale(1.05);
+  }
+
+  .gallery-item[data-ratio="adapt"]:hover .gallery-image {
+    transform: scale(1.02);
+  }
+
+  /* Enhanced Modal/Lightbox Styles */
+  .modal {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.9) 0%, rgba(20, 20, 30, 0.95) 100%);
+    backdrop-filter: blur(10px);
+    overflow: auto;
+    animation: modalFadeIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .modal.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-content {
+    position: relative;
+    max-width: 92vw;
+    max-height: 92vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 
+      0 25px 50px rgba(0, 0, 0, 0.5),
+      0 0 0 1px rgba(255, 255, 255, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    animation: contentSlideIn 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .modal-image {
+    max-width: 100%;
+    max-height: 88vh;
+    object-fit: contain;
+    border-radius: 12px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    transition: transform 0.3s ease;
+  }
+
+  .modal-image:hover {
+    transform: scale(1.02);
+  }
+
+  .close-btn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    color: white;
+    font-size: 28px;
+    font-weight: 300;
+    cursor: pointer;
+    z-index: 10000;
+    width: 45px;
+    height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .close-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  }
+
+  .close-btn:active {
+    transform: scale(0.95);
+  }
+
+  /* Enhanced Navigation Arrows */
+  .nav-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    color: white;
+    font-size: 24px;
+    font-weight: 300;
+    cursor: pointer;
+    padding: 15px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    z-index: 10000;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .nav-arrow:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-50%) scale(1.1);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  }
+
+  .nav-arrow:active {
+    transform: translateY(-50%) scale(0.95);
+  }
+
+  .nav-arrow.prev {
+    left: 20px;
+  }
+
+  .nav-arrow.next {
+    right: 20px;
+  }
+
+  /* Enhanced Loading Indicator */
+  .loading {
+    display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 18px;
+    font-weight: 300;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    padding: 20px 30px;
+    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  .loading.active {
+    display: block;
+  }
+
+  .loading::after {
+    content: '';
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 1s linear infinite;
+    margin-left: 10px;
+    vertical-align: middle;
+  }
+
+  /* Enhanced Image Counter */
+  .image-counter {
+    position: absolute;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: white;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    padding: 12px 24px;
+    border-radius: 25px;
+    font-size: 14px;
+    font-weight: 300;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    letter-spacing: 0.5px;
+  }
+
+  /* Enhanced Modal Action Buttons */
+  .modal-actions {
+    position: absolute;
+    bottom: 25px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 20px;
+    z-index: 10000;
+  }
+
+  .modal-btn {
+    padding: 14px 32px;
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    min-width: 130px;
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+    letter-spacing: 0.5px;
+  }
+
+  .modal-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+  }
+
+  .modal-btn:hover::before {
+    left: 100%;
+  }
+
+  .modal-btn.select {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+  }
+
+  .modal-btn.select:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 30px rgba(102, 126, 234, 0.4);
+    background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+  }
+
+  .modal-btn.cancel {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  }
+
+  .modal-btn.cancel:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-3px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+  }
+
+  .modal-btn:active {
+    transform: translateY(-1px);
+  }
+
+  /* Enhanced Animations */
+  @keyframes modalFadeIn {
+    from {
+      opacity: 0;
+      backdrop-filter: blur(0px);
+    }
+    to {
+      opacity: 1;
+      backdrop-filter: blur(10px);
+    }
+  }
+
+  @keyframes contentSlideIn {
+    from {
+      opacity: 0;
+      transform: scale(0.8) translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* Responsive Design */
+  @media screen and (max-width: 768px) {
+    .image-gallery {
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+      padding: 10px;
+    }
+
+    .gallery-item {
+      border-radius: 4px;
+    }
+
+    .close-btn {
+      top: 10px;
+      right: 10px;
+      width: 40px;
+      height: 40px;
+      font-size: 24px;
+    }
+
+    .nav-arrow {
+      font-size: 20px;
+      padding: 12px;
+      width: 44px;
+      height: 44px;
+    }
+
+    .nav-arrow.prev {
+      left: 15px;
+    }
+
+    .nav-arrow.next {
+      right: 15px;
+    }
+
+    .modal-content {
+      max-width: 95vw;
+      max-height: 88vh;
+      padding: 15px;
+      border-radius: 15px;
+    }
+
+    .modal-image {
+      max-height: 85vh;
+    }
+
+    .image-counter {
+      bottom: 90px;
+      font-size: 12px;
+      padding: 10px 20px;
+    }
+
+    .modal-actions {
+      bottom: 15px;
+      gap: 15px;
+    }
+
+    .modal-btn {
+      padding: 12px 24px;
+      font-size: 14px;
+      min-width: 110px;
+    }
+  }
+
+  @media screen and (max-width: 480px) {
+    .image-gallery {
+      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      gap: 8px;
+    }
+
+    .nav-arrow {
+      font-size: 18px;
+      padding: 10px;
+      width: 40px;
+      height: 40px;
+    }
+
+    .image-counter {
+      font-size: 11px;
+      padding: 8px 16px;
+      bottom: 85px;
+    }
+
+    .modal-btn {
+      padding: 10px 18px;
+      font-size: 12px;
+      min-width: 90px;
+    }
+
+    .modal-actions {
+      gap: 12px;
+    }
+  }
+
+  /* Touch-friendly enhancements for mobile */
+  @media (hover: none) and (pointer: coarse) {
+    .gallery-item:hover {
+      transform: none;
+    }
+    
+    .gallery-item:active {
+      transform: scale(0.98);
+    }
+  }
+</style>
+
+{% comment %}
+  Add your images here. You can fetch them from your Shopify store or manually add them.
+  Example structure:
+  {% for image in collections.all.products limit: 12 %}
+    {% if image.featured_image %}
+      <div class="gallery-item" onclick="openModal({{ forloop.index0 }})">
+        <img src="{{ image.featured_image | img_url: '400x400' }}" alt="{{ image.title }}" class="gallery-image">
+      </div>
+    {% endif %}
+  {% endfor %}
+{% endcomment %}
+
+<div class="image-gallery" id="imageGallery" data-aspect-ratio="{{ section.settings.aspect_ratio | default: 'square' }}">
+  {% for block in section.blocks %}
+    {% if block.settings.image != blank %}
+      <div class="gallery-item" onclick="openModal({{ forloop.index0 }})" data-ratio="{{ section.settings.aspect_ratio | default: 'square' }}">
+        <img src="{{ block.settings.image | img_url: '800x800' }}" 
+             alt="{{ block.settings.image.alt | default: 'Gallery Image' }}" 
+             class="gallery-image"
+             loading="lazy">
+      </div>
+    {% endif %}
+  {% endfor %}
+  
+  {% if section.blocks.size == 0 %}
+    <div style="text-align: center; padding: 40px; grid-column: 1 / -1;">
+      <p style="color: #666;">Add images to this gallery through the theme customizer.</p>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Modal -->
+<div class="modal" id="imageModal">
+  <span class="close-btn" onclick="closeModal()">&times;</span>
+  <div class="nav-arrow prev" onclick="changeImage(-1)">&#10094;</div>
+  <div class="nav-arrow next" onclick="changeImage(1)">&#10095;</div>
+  <div class="modal-content">
+    <div class="loading" id="loading">Loading...</div>
+    <img class="modal-image" id="modalImage" src="" alt="">
+  </div>
+  <div class="image-counter" id="imageCounter"></div>
+  <div class="modal-actions">
+    <button class="modal-btn cancel" onclick="closeModal()">Cancel</button>
+    <button class="modal-btn select" onclick="selectImage()">Select</button>
+  </div>
+</div>
+
+<script>
+let currentImageIndex = 0;
+let images = [];
+
+// Get all gallery images
+function initGallery() {
+  const galleryItems = document.querySelectorAll('.gallery-item img');
+  images = Array.from(galleryItems).map(img => ({
+    src: img.src.replace('800x800', '2048x2048'), // Get full-size image
+    alt: img.alt
+  }));
+}
+
+// Open modal with clicked image
+function openModal(index) {
+  currentImageIndex = index;
+  const modal = document.getElementById('imageModal');
+  const modalImg = document.getElementById('modalImage');
+  const imageCounter = document.getElementById('imageCounter');
+  const loading = document.getElementById('loading');
+  
+  modal.classList.add('active');
+  showImage(index);
+  
+  // Prevent body scroll when modal is open
+  document.body.style.overflow = 'hidden';
+}
+
+// Close modal
+function closeModal() {
+  const modal = document.getElementById('imageModal');
+  modal.classList.remove('active');
+  
+  // Restore body scroll
+  document.body.style.overflow = '';
+}
+
+// Select image (can be customized for your needs)
+function selectImage() {
+  const selectedImage = images[currentImageIndex];
+  
+  // Display the selected image info
+  console.log('Selected image:', selectedImage);
+  
+  // Extract image name from URL
+  const urlParts = selectedImage.src.split("/");
+  const imageName = urlParts[urlParts.length - 1];
+  const designData = { name: imageName };
+  
+  // Save to localStorage
+  localStorage.setItem("selectedDesign", JSON.stringify(designData));
+  
+  // Go back without forcing reload
+  if (document.referrer) {
+    history.back();
+  } else {
+    alert("Design saved: " + imageName + " (no referrer found)");
+  }
+  
+  // Close the modal after selection
+  closeModal();
+}
+
+// Show specific image in modal
+function showImage(index) {
+  const modalImg = document.getElementById('modalImage');
+  const imageCounter = document.getElementById('imageCounter');
+  const loading = document.getElementById('loading');
+  
+  // Update counter (1-based for display)
+  imageCounter.textContent = `${index + 1} / ${images.length}`;
+  
+  // Show loading
+  loading.classList.add('active');
+  modalImg.style.opacity = '0';
+  
+  // Load image
+  modalImg.src = images[index].src;
+  modalImg.alt = images[index].alt;
+  
+  // Hide loading when image loads
+  modalImg.onload = function() {
+    loading.classList.remove('active');
+    modalImg.style.opacity = '1';
+    modalImg.style.transition = 'opacity 0.3s';
+  };
+  
+  modalImg.onerror = function() {
+    loading.classList.remove('active');
+    modalImg.alt = 'Image could not be loaded';
+  };
+}
+
+// Navigate between images
+function changeImage(direction) {
+  currentImageIndex += direction;
+  
+  // Loop around
+  if (currentImageIndex < 0) {
+    currentImageIndex = images.length - 1;
+  } else if (currentImageIndex >= images.length) {
+    currentImageIndex = 0;
+  }
+  
+  showImage(currentImageIndex);
+}
+
+// Keyboard navigation
+document.addEventListener('keydown', function(event) {
+  const modal = document.getElementById('imageModal');
+  
+  if (modal.classList.contains('active')) {
+    if (event.key === 'Escape') {
+      closeModal();
+    } else if (event.key === 'ArrowLeft') {
+      changeImage(-1);
+    } else if (event.key === 'ArrowRight') {
+      changeImage(1);
+    }
+  }
+});
+
+// Close modal when clicking outside the image
+document.getElementById('imageModal').addEventListener('click', function(event) {
+  if (event.target === this) {
+    closeModal();
+  }
+});
+
+// Swipe support for mobile
+let touchStartX = 0;
+let touchEndX = 0;
+
+document.getElementById('imageModal').addEventListener('touchstart', function(e) {
+  touchStartX = e.changedTouches[0].screenX;
+});
+
+document.getElementById('imageModal').addEventListener('touchend', function(e) {
+  touchEndX = e.changedTouches[0].screenX;
+  handleSwipe();
+});
+
+function handleSwipe() {
+  const swipeThreshold = 50;
+  const diff = touchStartX - touchEndX;
+  
+  if (Math.abs(diff) > swipeThreshold) {
+    if (diff > 0) {
+      changeImage(1); // Swipe left - next image
+    } else {
+      changeImage(-1); // Swipe right - previous image
+    }
+  }
+}
+
+// Initialize gallery on page load
+document.addEventListener('DOMContentLoaded', function() {
+  initGallery();
+});
+</script>
+
+{% schema %}
+{
+  "name": "Image Gallery",
+  "tag": "section",
+  "class": "image-gallery-section",
+  "settings": [
+    {
+      "type": "header",
+      "content": "Gallery Settings"
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Section Title",
+      "default": "Image Gallery"
+    },
+    {
+      "type": "select",
+      "id": "aspect_ratio",
+      "label": "Image Block Aspect Ratio",
+      "options": [
+        {
+          "value": "square",
+          "label": "Square (1:1)"
+        },
+        {
+          "value": "portrait",
+          "label": "Portrait (3:4)"
+        },
+        {
+          "value": "landscape",
+          "label": "Landscape (4:3)"
+        },
+        {
+          "value": "adapt",
+          "label": "Adapt to Image Size"
+        }
+      ],
+      "default": "square",
+      "info": "Choose how image blocks are displayed in the gallery"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "image",
+      "name": "Gallery Image",
+      "settings": [
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Image",
+          "info": "Upload an image for your gallery. Recommended size: 800x800px or larger for best quality."
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Image Gallery",
+      "blocks": [
+        {
+          "type": "image"
+        },
+        {
+          "type": "image"
+        },
+        {
+          "type": "image"
+        },
+        {
+          "type": "image"
+        }
+      ]
+    }
+  ],
+  "max_blocks": 50
+}
+{% endschema %}
