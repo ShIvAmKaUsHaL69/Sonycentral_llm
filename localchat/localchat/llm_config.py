@@ -5,7 +5,7 @@ Provides base URL and a single model name used across the app.
 
 # Base LLM connection/config
 LLM_CONFIG = {
-    "base_url": "https://43b7bb1d8123.ngrok-free.app", 
+    "base_url": "http://localhost:11434", 
     "model": "qwen3:4b",
     "temperature": 0.1,
     "max_tokens": 4096,
